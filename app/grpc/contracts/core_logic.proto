@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package swarm.corelogic.v1;
+
+service CoreLogicService {
+  rpc AssignPosition(AssignPositionRequest) returns (AssignPositionResponse);
+  rpc RebalanceWorkload(RebalanceWorkloadRequest) returns (RebalanceWorkloadResponse);
+}
+
+message AssignPositionRequest {
+  string user_id = 1;
+  string role = 2;
+  int32 capacity_hours = 3;
+}
+
+message AssignPositionResponse {
+  string assigned_to = 1;
+  string rationale = 2;
+}
+
+message TeamMember {
+  string user_id = 1;
+  string role = 2;
+  int32 capacity_hours = 3;
+}
+
+message RebalanceWorkloadRequest {
+  repeated TeamMember team = 1;
+}
+
+message RebalanceItem {
+  string user_id = 1;
+  int32 recommended_capacity = 2;
+  string reason = 3;
+}
+
+message RebalanceWorkloadResponse {
+  repeated RebalanceItem updates = 1;
+}

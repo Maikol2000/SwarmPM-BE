@@ -14,6 +14,11 @@ class Principal(BaseModel):
     scopes: set[str] = Field(default_factory=set)
 
 
+class ServicePrincipal(BaseModel):
+    service_id: str
+    scopes: set[str] = Field(default_factory=set)
+
+
 def _normalize_scopes(scopes: list[str]) -> list[str]:
     normalized: list[str] = []
     seen: set[str] = set()
@@ -61,6 +66,35 @@ def create_access_token(subject: str, role: str, scopes: list[str]) -> tuple[str
     return token, expires_at
 
 
+def create_service_token(service_id: str, scopes: list[str]) -> tuple[str, datetime]:
+    settings = get_settings()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.service_token_expire_minutes)
+    normalized_scopes = _normalize_scopes(scopes)
+    payload = {
+        "sub": service_id,
+        "token_type": "service",
+        "scopes": normalized_scopes,
+        "exp": expires_at,
+        "iat": datetime.now(timezone.utc),
+    }
+    token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    return token, expires_at
+
+
+def _decode_token(token: str) -> dict:
+    settings = get_settings()
+    decode_kwargs: dict = {
+        "key": settings.jwt_secret,
+        "algorithms": [settings.jwt_algorithm],
+    }
+    if settings.oidc_audience:
+        decode_kwargs["audience"] = settings.oidc_audience
+    if settings.oidc_issuer:
+        decode_kwargs["issuer"] = settings.oidc_issuer
+
+    return jwt.decode(token, **decode_kwargs)
+
+
 def authenticate_bearer_token(token: str) -> Principal:
     settings = get_settings()
 
@@ -68,7 +102,7 @@ def authenticate_bearer_token(token: str) -> Principal:
         return _legacy_principal()
 
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        payload = _decode_token(token)
     except InvalidTokenError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
@@ -83,6 +117,27 @@ def authenticate_bearer_token(token: str) -> Principal:
 
     normalized_scopes = _normalize_scopes(scopes)
     return Principal(sub=subject, role=role, scopes=set(normalized_scopes))
+
+
+def authenticate_service_token(token: str) -> ServicePrincipal:
+    try:
+        payload = _decode_token(token)
+    except InvalidTokenError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid service token") from exc
+
+    token_type = payload.get("token_type")
+    if token_type != "service":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid service token type")
+
+    service_id = payload.get("sub")
+    if not service_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Service token missing subject")
+
+    scopes = payload.get("scopes", [])
+    if not isinstance(scopes, list):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Service token scopes must be a list")
+
+    return ServicePrincipal(service_id=service_id, scopes=set(_normalize_scopes(scopes)))
 
 
 def authorize_websocket_token(token: str | None) -> Principal:

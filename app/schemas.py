@@ -161,3 +161,16 @@ class AuthTokenResponse(BaseModel):
     user_id: str
     role: str
     scopes: list[str]
+
+
+class AuthServiceTokenRequest(BaseModel):
+    service_id: str
+    scopes: list[str] = Field(default_factory=list)
+
+
+class AuthServiceTokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    expires_at: datetime
+    service_id: str
+    scopes: list[str]

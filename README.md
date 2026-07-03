@@ -68,10 +68,17 @@ Compatibility mode remains enabled by default:
   - `GET /api/dashboard/unified`
 - `Q-BE-01`
   - JWT token issue endpoint in `app/api/routes/auth.py`
+  - Service identity token issue endpoint: `POST /api/auth/service-token`
   - Scope and role dependencies in `app/core/dependencies.py`
-  - Token validation and WebSocket auth in `app/core/security.py`
+  - Token validation + OIDC-ready checks and WebSocket auth in `app/core/security.py`
+  - Per-route rate limit dependency in `app/core/dependencies.py`
+  - gRPC service auth interceptor in `app/grpc/auth.py`
+  - REST-to-gRPC gateway adapter in `app/services/core_logic_gateway.py`
 - `Q-BE-02`
-  - Shared logic in `app/services/core_logic.py`
+  - Core domain services/interfaces in `app/services/core_domain_service.py`
+  - Repository pattern persistence in `app/repositories/domain_repository.py`
+  - Domain models in `app/models/domain.py`
+  - Domain events publisher (Redis Streams + fallback) in `app/core/events.py`
 - `TM-01`
   - `POST /api/team/assign`
 - `TM-04`
@@ -142,6 +149,29 @@ Notes:
 - If Redis is not configured or unavailable, the service falls back to an in-memory cache so local development and tests still work.
 - `POST /api/spaces/admin/cache/refresh` clears and repopulates the spaces cache; manager/admin roles are allowed.
 
+## 5.4) API gateway and internal gRPC topology
+
+Public edge remains FastAPI (gateway) and can call internal services via gRPC.
+
+Configuration:
+
+```powershell
+$env:CORE_LOGIC_TRANSPORT = "grpc"                   # inprocess | grpc
+$env:CORE_LOGIC_GRPC_TARGET = "127.0.0.1:50051"     # target for gateway grpc client
+$env:START_EMBEDDED_CORE_LOGIC_GRPC = "true"        # optional local embedded server
+$env:EMBEDDED_CORE_LOGIC_GRPC_BIND = "127.0.0.1:50051"
+```
+
+Service-to-service auth:
+
+- Mint service identity tokens via `POST /api/auth/service-token`.
+- Attach token to gRPC metadata as `Authorization: Bearer <token>`.
+- `app/grpc/auth.py` enforces token validity and required scopes per RPC.
+
+Reference contract:
+
+- `app/grpc/contracts/core_logic.proto`
+
 ## 6) Extensible structure
 
 - `app/core`: configuration, security, and auth dependencies
@@ -149,4 +179,6 @@ Notes:
 - `app/models`: SQLAlchemy entities
 - `app/repositories`: persistence/query logic
 - `app/services`: business logic
+- `app/grpc`: service-to-service auth and grpc server helpers
+- `app/gateway`: gateway-specific concerns (e.g., rate limiting)
 - `app/api/routes`: HTTP and WebSocket endpoints
