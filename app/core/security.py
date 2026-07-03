@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
-import jwt
 from fastapi import HTTPException, WebSocketException, status
-from jwt import InvalidTokenError
+from jose import JWTError, jwt
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
@@ -103,7 +102,7 @@ def authenticate_bearer_token(token: str) -> Principal:
 
     try:
         payload = _decode_token(token)
-    except InvalidTokenError as exc:
+    except JWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
     subject = payload.get("sub")
@@ -122,7 +121,7 @@ def authenticate_bearer_token(token: str) -> Principal:
 def authenticate_service_token(token: str) -> ServicePrincipal:
     try:
         payload = _decode_token(token)
-    except InvalidTokenError as exc:
+    except JWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid service token") from exc
 
     token_type = payload.get("token_type")
