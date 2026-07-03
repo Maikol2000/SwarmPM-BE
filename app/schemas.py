@@ -46,13 +46,50 @@ class ChatMessage(BaseModel):
 
 class SpaceSubcategory(BaseModel):
     id: str
+    category_id: str
     name: str
+    badge_count: int = 0
+    ticker: str
+    stats: dict[str, int | float | str] = Field(default_factory=dict)
 
 
 class SpaceCategory(BaseModel):
     id: str
     name: str
+    icon: str
+    order: int
     subcategories: list[SpaceSubcategory]
+
+
+class SpaceContentItem(BaseModel):
+    id: str
+    title: str
+    summary: str
+    status: str
+    owner: str
+
+
+class SpaceContent(BaseModel):
+    category_id: str
+    subcategory_id: str
+    ticker: str
+    items: list[SpaceContentItem]
+
+
+class SpaceDepartment(BaseModel):
+    id: str
+    name: str
+    category_id: str
+    active_users: int
+    badge_count: int
+
+
+class SpaceTrend(BaseModel):
+    id: str
+    label: str
+    category_id: str
+    subcategory_id: str
+    score: float
 
 
 class AssignmentRequest(BaseModel):

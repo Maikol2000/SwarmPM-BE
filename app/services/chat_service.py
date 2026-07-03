@@ -17,6 +17,7 @@ class ChatService:
         self._active_connections: int = 0
         self._presence_changes_total: int = 0
         self._mark_read_total: int = 0
+        self._ws_messages_total: int = 0
 
     # ---------- presence ----------
 
@@ -57,7 +58,7 @@ class ChatService:
 
         if db is not None:
             try:
-                messages_total = self._repo.total_messages(db)
+                messages_total = self._repo.total_messages(db) + self._ws_messages_total
                 mark_read = self._repo.total_read(db)
                 presence_count = self._presence_repo.count_presence(db)
             except Exception:
@@ -73,6 +74,7 @@ class ChatService:
 
     def increment_messages_sent(self) -> None:
         self._messages_sent_total += 1
+        self._ws_messages_total += 1
 
     # ---------- chat operations ----------
 

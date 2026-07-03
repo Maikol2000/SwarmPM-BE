@@ -59,6 +59,11 @@ Compatibility mode remains enabled by default:
   - `WS /api/chat/ws?user_id=...&token=...`
 - `DASH-04`
   - `GET /api/spaces/categories`
+  - `GET /api/spaces/categories/{category_id}/subcategories`
+  - `GET /api/spaces/content/{category_id}/{subcategory_id}`
+  - `GET /api/spaces/departments`
+  - `GET /api/spaces/trending`
+  - `POST /api/spaces/admin/cache/refresh`
 - `DASH-07`
   - `GET /api/dashboard/unified`
 - `Q-BE-01`
@@ -119,6 +124,23 @@ Notes:
 - Presence is persisted in the database table `presence` via SQLAlchemy.
 - With PostgreSQL configured, presence state is shared across app instances.
 - If you change `pg_hba.conf`, restart the PostgreSQL 18 service as Administrator so the auth changes take effect.
+
+## 5.3) Spaces cache configuration
+
+`DASH-04` caches category/panel datasets for 300 seconds.
+
+Use Redis in environments where shared cache is required:
+
+```powershell
+$env:REDIS_URL = "redis://localhost:6379/0"
+uvicorn app.main:app --reload
+```
+
+Notes:
+
+- If `REDIS_URL` is set and reachable, `/api/spaces/*` cache entries are stored in Redis with TTL 300s.
+- If Redis is not configured or unavailable, the service falls back to an in-memory cache so local development and tests still work.
+- `POST /api/spaces/admin/cache/refresh` clears and repopulates the spaces cache; manager/admin roles are allowed.
 
 ## 6) Extensible structure
 

@@ -14,6 +14,20 @@ class Principal(BaseModel):
     scopes: set[str] = Field(default_factory=set)
 
 
+def _normalize_scopes(scopes: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for scope in scopes:
+        if not isinstance(scope, str):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token scopes must be strings")
+        value = scope.strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
 def _legacy_principal() -> Principal:
     return Principal(
         sub="dev-user",
@@ -35,10 +49,11 @@ def _legacy_principal() -> Principal:
 def create_access_token(subject: str, role: str, scopes: list[str]) -> tuple[str, datetime]:
     settings = get_settings()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+    normalized_scopes = _normalize_scopes(scopes)
     payload = {
         "sub": subject,
         "role": role,
-        "scopes": scopes,
+        "scopes": normalized_scopes,
         "exp": expires_at,
         "iat": datetime.now(timezone.utc),
     }
@@ -66,7 +81,8 @@ def authenticate_bearer_token(token: str) -> Principal:
     if not isinstance(scopes, list):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token scopes must be a list")
 
-    return Principal(sub=subject, role=role, scopes=set(scopes))
+    normalized_scopes = _normalize_scopes(scopes)
+    return Principal(sub=subject, role=role, scopes=set(normalized_scopes))
 
 
 def authorize_websocket_token(token: str | None) -> Principal:
